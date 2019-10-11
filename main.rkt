@@ -3,6 +3,13 @@
 ;; Load the students file and convert it to a list
 (define student-list (car (file->list "all-students.lsp")))
 
+;;; predicates
+(define (in-group? student groupnum) (= (car student) groupnum))
+(define (has-id? student id) (string-ci=? (cadr student) id))
+(define (has-name? student name) (string-ci=? (caddr student) name))
+(define (is-sex? student sex) (string-ci=? (cadddr student) sex))
+(define (has-nationality? student nationality) (string-ci=? (car (cddddr student)) nationality))
+
 ;; Function that returns a given group from a grouping
 (define (get-group-members sl groupNumber)
   (if (null? sl)
@@ -55,9 +62,14 @@
 
 ;; Predicate function for a single student
 
-;; Selection function for a single student
+;; Selection function for a single student 
+(define (select-student sl pred)
+  (filter
+   (lambda (x) (not ((lambda x (pred x)) (car x) (caar sl)))) 
+   (cdr sl)))
 
 ;; Constructor function for a single group
+
 
 ;; Predicate function for a group
 
@@ -93,7 +105,33 @@
          gl))
 
 ;; Random grouping
+(define (group-random sl gsl)
+  (if (= (length sl) (sumList gsl))
+      (generate-random-group (shuffle sl) gsl 1 0)
+      (error "Error: Wrong amount of students in gsl")
+  )
+)
 
+;; Helper to generate random group
+; sl is students needing to be grouped
+; nsl is students who have been grouped
+; gn is current group number
+(define (generate-random-group sl gsl gn count)
+  ; Call function on first element then
+  ; recursively call it on the remaining elements, increase group number
+  ; when it reaches the wanted group size
+  (if (or (null? sl) (null? gsl))
+      '()
+      (if (= count (car gsl))
+          (generate-random-group sl (cdr gsl) (+ gn 1) 0)
+          (cons (cons gn (car sl)) (generate-random-group (cdr sl) gsl gn (+ count 1))))
+  )
+)
+
+;; Helper method to sum list elements
+(define (sumList sum)
+  (apply + sum)
+)
 
 ;; Grouping by counting
 ; sl is a list of students
@@ -135,3 +173,5 @@
 (define (stud)
   car (car gc)
 )
+
+(define rg (group-random student-list '(50 50 50 50)))
