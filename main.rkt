@@ -3,13 +3,7 @@
 ;; Load the students file and convert it to a list
 (define student-list (car (file->list "all-students.lsp")))
 
-;;; predicates
-(define (in-group? student groupnum) (= (car student) groupnum))
-(define (has-id? student id) (string-ci=? (cadr student) id))
-(define (has-name? student name) (string-ci=? (caddr student) name))
-(define (is-sex? student sex) (string-ci=? (cadddr student) sex))
-(define (has-nationality? student nationality) (string-ci=? (car (cddddr student)) nationality))
-
+;; Selector function that returns a list of students in a group
 ;; Function that returns a given group from a grouping
 (define (get-group-members sl groupNumber)
   (if (null? sl)
@@ -59,25 +53,89 @@
   (group-size-finder 1 sl < +inf.0))
 
 ;; Constructor function for a single student
+(define (make-student id name sex nationality age)
+  (list id name sex nationality age))
 
-;; Predicate function for a single student
+;; Selection functions for a single student
+(define (group-of-student student)
+  (if (= (length student) 6)
+      (car student)
+      (raise-argument-error 'group-of-student "Wrong length?" student)
+  )
+)
 
-;; Selection function for a single student 
-(define (select-student sl pred)
-  (filter
-   (lambda (x) (not ((lambda x (pred x)) (car x) (caar sl)))) 
-   (cdr sl)))
+(define (id-of-student student)
+      (if (= (length student) 6)
+          (cadr student)
+          (car student)
+          )
+)
+
+
+(define (name-of-student student)
+      (if (= (length student) 6)
+          (caddr student)
+          (cadr student)
+          )
+)
+
+(define (sex-of-student student)
+  (if (= (length student) 6)
+      (cadddr student)
+      (caddr student)
+  )
+)
+
+(define (nationality-of-student student)
+  (if (= (length student) 6)
+      (car (cddddr student))
+      (cadddr student)
+  )
+)
+
+(define (age-of-student student)
+  (if (= (length student) 6)
+      (cadr (cddddr student))
+      (car (cddddr student))
+  )
+)
 
 ;; Constructor function for a single group
+(define (make-group id students)
+  (make-group-helper id (car students) (cdr students)))
 
+(define (make-group-helper id student remaining)
+  (if (null? remaining)
+      (cons (cons id student) '())
+      (cons (cons id student) (make-group-helper id (car remaining) (cdr remaining)))
+   )
+)
 
-;; Predicate function for a group
+;; Predicate function for a student
+(define (is-student? student)
+   (and (list? student)
+   (and (string? (id-of-student student)) (string? (name-of-student student))
+        (and (and (or (string-ci=? "female" (sex-of-student student)) (string-ci=? "male" (sex-of-student student)))
+            (string? (nationality-of-student student)))
+             (positive? (age-of-student student)))))
+)
 
-;; Selector function that returns a list of students in a group
+;; TODO Predicate function for a group
+(define (is-group? group)
+  (if (null? group) #f
+     (andmap is-student? group)) ;;; TODO Check if all students are in same group
+)
 
 ;; Selector function that returns the group-id (group number)
+(define (id-of-group group)
+  (if (number? (caar group))
+      (caar group)
+      #f
+   )
+)
 
-;; Predicate that identifies a grouping object
+;; TODO Predicate that identifies a grouping object
+
 
 ;; Pretty printer for students
 (define (print-student student)
@@ -85,9 +143,10 @@
         [id (cadr student)]
         [name (caddr student)]
         [sex  (cadddr student)]
-        [nationality (car (cddddr (stud)))])
-    (printf "Group: ~a\nId: ~s\nName: ~v\nSex: ~v\nNationality: ~v\n\n"
-            group id name sex nationality)
+        [nationality (car (cddddr (stud)))]
+        [age (cadr (cddddr (stud)))])
+    (printf "Group: ~a\nId: ~s\nName: ~v\nSex: ~v\nNationality: ~v\nAge: ~v\n\n"
+            group id name sex nationality age)
   )
 )
 
@@ -160,7 +219,7 @@
   (group-counting (sort (sort sl string<? #:key sex) string<? #:key nationality) ga))
 )
 
-;; Random grouping with group predicate
+;; TODO Random grouping with group predicate
 ;;; At least N students in a group are A years old or older
 ;;; All students in the group are female
 ;;; No students in the group are of the same age
@@ -175,3 +234,10 @@
 )
 
 (define rg (group-random student-list '(50 50 50 50)))
+
+(define john (make-student "15" "John Bob" "MalE" "Spacian" 15))
+(define bob (make-student "16" "Bobby Johnson" "Female" "Outer" 19))
+(define groupjohn (list 12 "15" "gj" "male" "earthling" 19))
+(define jb (make-group 19 (list john bob)))
+
+(is-group? jb)
