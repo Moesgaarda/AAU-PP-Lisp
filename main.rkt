@@ -1,3 +1,16 @@
+; Daniel Moesgaard Andersen
+; 20164256
+; dand16@student.aau.dk
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Made in racket.
+;
+; Status of program:
+; The students are loaded from the "all-students.lsp" file and saved to a list.
+; When a group is created, the group number is consed with the rest of the students
+; information, such that it is in the form (groupnumber, id, name, ...)
+; It has selectors for all details of a student and for getting members of a group by group id.
+; 
+
 #lang racket
 
 ;; Load the students file and convert it to a list
@@ -35,7 +48,8 @@
 
 ;; Function that returns the maximum group size in a grouping
 (define (maximum-group-size sl)
-  (group-size-finder 1 sl > -inf.0))
+  (group-size-finder 1 sl > -inf.0)
+)
 
 ;; Helper method that compares each group size based on cmp function input
 (define (group-size-finder currentGroupId sl cmp currentBest)
@@ -60,7 +74,7 @@
 (define (group-of-student student)
   (if (= (length student) 6)
       (car student)
-      (raise-argument-error 'group-of-student "Wrong length?" student)
+      #f
   )
 )
 
@@ -117,13 +131,24 @@
    (and (string? (id-of-student student)) (string? (name-of-student student))
         (and (and (or (string-ci=? "female" (sex-of-student student)) (string-ci=? "male" (sex-of-student student)))
             (string? (nationality-of-student student)))
-             (positive? (age-of-student student)))))
+             (positive? (age-of-student student)))
+        )
+   )
 )
 
 ;; TODO Predicate function for a group
 (define (is-group? group)
   (if (null? group) #f
      (andmap is-student? group)) ;;; TODO Check if all students are in same group
+)
+
+(define (is-in-group? student)
+  (if (list? student)
+      (if (= (length student) 6)
+          #t
+          #f
+          )
+      #f)
 )
 
 ;; Selector function that returns the group-id (group number)
@@ -134,17 +159,20 @@
    )
 )
 
-;; TODO Predicate that identifies a grouping object
-
+;; Predicate that identifies a grouping object
+(define (is-grouping? grouping)
+  (if (null? grouping) #f
+     (andmap is-in-group? grouping))
+)
 
 ;; Pretty printer for students
 (define (print-student student)
-  (let ([group (car student)]
-        [id (cadr student)]
-        [name (caddr student)]
-        [sex  (cadddr student)]
-        [nationality (car (cddddr (stud)))]
-        [age (cadr (cddddr (stud)))])
+  (let ([group (group-of-student student)]
+        [id (id-of-student student)]
+        [name (name-of-student student)]
+        [sex  (sex-of-student student)]
+        [nationality (nationality-of-student student)]
+        [age (age-of-student student)])
     (printf "Group: ~a\nId: ~s\nName: ~v\nSex: ~v\nNationality: ~v\nAge: ~v\n\n"
             group id name sex nationality age)
   )
@@ -161,7 +189,8 @@
 (define (print-grouping gl)
   (for-each (lambda (student)
          (print-student student))
-         gl))
+         gl)
+)
 
 ;; Random grouping
 (define (group-random sl gsl)
