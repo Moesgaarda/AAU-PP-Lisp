@@ -46,11 +46,6 @@
   )
 )
 
-;; Function that returns the maximum group size in a grouping
-(define (maximum-group-size sl)
-  (group-size-finder 1 sl > -inf.0)
-)
-
 ;; Helper method that compares each group size based on cmp function input
 (define (group-size-finder currentGroupId sl cmp currentBest)
   (if (null? (get-group-members sl currentGroupId))
@@ -62,15 +57,23 @@
   )
 )
 
+;; Function that returns the maximum group size in a grouping
+(define (maximum-group-size sl)
+  (group-size-finder 1 sl > -inf.0)
+)
+
 ;; Function that returns the minimum group size in a grouping
 (define (minimum-group-size sl)
-  (group-size-finder 1 sl < +inf.0))
+  (group-size-finder 1 sl < +inf.0)
+)
 
 ;; Constructor function for a single student
 (define (make-student id name sex nationality age)
-  (list id name sex nationality age))
+  (list id name sex nationality age)
+)
 
 ;; Selection functions for a single student
+; Group number
 (define (group-of-student student)
   (if (= (length student) 6)
       (car student)
@@ -78,6 +81,7 @@
   )
 )
 
+; Id 
 (define (id-of-student student)
       (if (= (length student) 6)
           (cadr student)
@@ -85,7 +89,7 @@
           )
 )
 
-
+; Name
 (define (name-of-student student)
       (if (= (length student) 6)
           (caddr student)
@@ -93,6 +97,7 @@
           )
 )
 
+; Sex
 (define (sex-of-student student)
   (if (= (length student) 6)
       (cadddr student)
@@ -100,6 +105,7 @@
   )
 )
 
+; Nationality
 (define (nationality-of-student student)
   (if (= (length student) 6)
       (car (cddddr student))
@@ -107,6 +113,7 @@
   )
 )
 
+; Age
 (define (age-of-student student)
   (if (= (length student) 6)
       (cadr (cddddr student))
@@ -116,8 +123,10 @@
 
 ;; Constructor function for a single group
 (define (make-group id students)
-  (make-group-helper id (car students) (cdr students)))
+  (make-group-helper id (car students) (cdr students))
+)
 
+; Helper to append group number to student
 (define (make-group-helper id student remaining)
   (if (null? remaining)
       (cons (cons id student) '())
@@ -126,7 +135,7 @@
 )
 
 ;; Predicate function for a student
-(define (is-student? student)
+(define (student? student)
    (and (list? student)
    (and (string? (id-of-student student)) (string? (name-of-student student))
         (and (and (or (string-ci=? "female" (sex-of-student student)) (string-ci=? "male" (sex-of-student student)))
@@ -136,10 +145,22 @@
    )
 )
 
+;; Is student female?
+(define (female? student)
+  (string-ci=? "female" (sex-of-student student))
+)
+
+;; Is student male?
+(define (male? student)
+  (string-ci=? "male" (sex-of-student student))
+)
+
+;; Are all members in same group?
 (define (all-in-same-group? group)
   (all-in-same-group-helper group (group-of-student (car group))) ;; call a helper
 )
 
+; Helper to check if all members are in same group as the first
 (define (all-in-same-group-helper group groupNumber)
   (if (null? group)
       #t
@@ -150,15 +171,21 @@
   )
 )
 
-;; TODO Predicate function for a group
+;; Predicate function for a group
 (define (is-group? group)
   (if (null? group) #f
      (and
-      (andmap is-student? group)
+      (andmap student? group)
       (all-in-same-group? group))
   )
 )
 
+;; Predicate to check if all group members are female
+(define (all-female? group)
+  (andmap female? group)
+)
+
+;; Predicate function for whether student is in a group
 (define (is-in-group? student)
   (if (list? student)
       (if (= (length student) 6)
@@ -233,9 +260,12 @@
   )
 )
 
-;; Helper method to sum list elements
+;; Helper method to sum list elements if input is good
 (define (sumList sum)
-  (apply + sum)
+  (if (andmap exact-nonnegative-integer? sum)
+    (apply + sum)
+    (error "Group size contained non-positive integers")
+  )
 )
 
 ;; Grouping by counting
@@ -267,8 +297,39 @@
 ;;; At least N students in a group are A years old or older
 ;;; All students in the group are female
 ;;; No students in the group are of the same age
+(define (group-random-predicate sl gsl predicate)
+  (group-random-predicate-helper sl gsl predicate 0)
+)
 
+(define (group-random-predicate-helper sl gsl predicate attempts)
+  (if (> attempts 1000)
+      (error "Could not generate groups from predecate")
 
+      (if (= (length sl) (sumList gsl))
+          (let ([generated-group (generate-random-group-pred (shuffle sl) gsl 1 0 0)])
+            (if (not (predicate generated-group))
+                (group-random-predicate-helper sl gsl predicate (+ attempts 1))
+                generated-group
+                )
+            )
+          (error "Error: Wrong amount of students in gsl")
+          )
+      )
+  )
+
+; Helper to generate groups, giving it 1000 attempts
+(define (generate-random-group-pred sl gsl gn count attempts)
+  ; Call function on first element then
+  ; recursively call it on the remaining elements, increase group number
+  ; when it reaches the wanted group size
+  (if (or (null? sl) (null? gsl))
+      '()
+      (if (= count (car gsl))
+          (generate-random-group-pred sl (cdr gsl) (+ gn 1) 0 (+ attempts 1))
+          (cons (cons gn (car sl)) (generate-random-group-pred (cdr sl) gsl gn (+ count 1) attempts))
+          )
+      )
+  )
 
 ;; Example groups
 (define gc (group-counting student-list 6))
@@ -283,5 +344,3 @@
 (define bob (make-student "16" "Bobby Johnson" "Female" "Outer" 19))
 (define groupjohn (list 12 "15" "gj" "male" "earthling" 19))
 (define jb (make-group 19 (list john bob)))
-
-(is-group? jb)
