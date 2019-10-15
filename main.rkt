@@ -136,10 +136,27 @@
    )
 )
 
+(define (all-in-same-group? group)
+  (all-in-same-group-helper group (group-of-student (car group))) ;; call a helper
+)
+
+(define (all-in-same-group-helper group groupNumber)
+  (if (null? group)
+      #t
+      (if (= (group-of-student (car group)) groupNumber)
+          (all-in-same-group-helper (cdr group) groupNumber)
+          #f
+       )
+  )
+)
+
 ;; TODO Predicate function for a group
 (define (is-group? group)
   (if (null? group) #f
-     (andmap is-student? group)) ;;; TODO Check if all students are in same group
+     (and
+      (andmap is-student? group)
+      (all-in-same-group? group))
+  )
 )
 
 (define (is-in-group? student)
@@ -242,10 +259,8 @@
 ;; sl is student list
 ;; ga is the desired amount of groups
 (define (group-count-balanced sl ga)
-  (let ([sex caddr]
-        [nationality cadddr])
-    ;; Sort first by sex, then by nationality to ensure a fair distribution when counting
-  (group-counting (sort (sort sl string<? #:key sex) string<? #:key nationality) ga))
+    ;; Sort first by nationality, then by sex to ensure a fair distribution when counting
+  (group-counting (sort (sort sl string<? #:key nationality-of-student) string<? #:key sex-of-student) ga)
 )
 
 ;; TODO Random grouping with group predicate
