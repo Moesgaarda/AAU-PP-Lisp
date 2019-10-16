@@ -9,12 +9,23 @@
 ; When a group is created, the group number is consed with the rest of the students
 ; information, such that it is in the form (groupnumber, id, name, ...)
 ; It has selectors for all details of a student and for getting members of a group by group id.
-; 
+;;;
+; Improvements:
+; Group by random with predicate should probably generate a group at a time,
+; and generate as many groups as possible instead of just returning an error if it
+; can't generate all groups fulfilling the predicate.
 
 #lang racket
 
 ;; Load the students file and convert it to a list
 (define student-list (car (file->list "all-students.lsp")))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;              SELECTOR FUNCTIONS              ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 ;; Selector function that returns a list of students in a group
 ;; Function that returns a given group from a grouping
@@ -58,18 +69,17 @@
   )
 
 ;; Function that returns the maximum group size in a grouping
-(define (maximum-group-size sl)
-  (group-size-finder 1 sl > -inf.0)
+(define (maximum-group-size grouping)
+  (if (andmap student? grouping)
+      (group-size-finder 1 grouping > -inf.0)
+      (error "Expects a list of students with groups"))
   )
 
 ;; Function that returns the minimum group size in a grouping
-(define (minimum-group-size sl)
-  (group-size-finder 1 sl < +inf.0)
-  )
-
-;; Constructor function for a single student
-(define (make-student id name sex nationality age)
-  (list id name sex nationality age)
+(define (minimum-group-size grouping)
+  (if (andmap student? grouping)
+      (group-size-finder 1 grouping < +inf.0)
+      (error "Expects a list of students with groups"))
   )
 
 ;; Selection functions for a single student
@@ -81,7 +91,7 @@
       )
   )
 
-; Id 
+; Id
 (define (id-of-student student)
   (if (= (length student) 6)
       (cadr student)
@@ -121,18 +131,28 @@
       )
   )
 
-;; Constructor function for a single group
-(define (make-group id students)
-  (make-group-helper id (car students) (cdr students))
-  )
-
-; Helper to append group number to student
-(define (make-group-helper id student remaining)
-  (if (null? remaining)
-      (cons (cons id student) '())
-      (cons (cons id student) (make-group-helper id (car remaining) (cdr remaining)))
+; Helper to check if all members are in same group as the first
+(define (all-in-same-group-helper group groupNumber)
+  (if (null? group)
+      #t
+      (if (= (group-of-student (car group)) groupNumber)
+          (all-in-same-group-helper (cdr group) groupNumber)
+          #f
+          )
       )
   )
+
+;; Selector function that returns the group-id (group number)
+(define (id-of-group group)
+  (if (number? (caar group))
+      (caar group)
+      #f
+      )
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;              PREDICATE FUNCTIONS             ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Predicate function for a student
 (define (student? student)
@@ -160,19 +180,8 @@
   (all-in-same-group-helper group (group-of-student (car group))) ;; call a helper
   )
 
-; Helper to check if all members are in same group as the first
-(define (all-in-same-group-helper group groupNumber)
-  (if (null? group)
-      #t
-      (if (= (group-of-student (car group)) groupNumber)
-          (all-in-same-group-helper (cdr group) groupNumber)
-          #f
-          )
-      )
-  )
-
 ;; Predicate function for a group
-(define (is-group? group)
+(define (group? group)
   (if (null? group) #f
       (and
        (andmap student? group)
@@ -185,12 +194,13 @@
   (andmap female? group)
   )
 
+;; Predicate to check if any group member is female
 (define (any-female? group)
   (ormap female? group)
   )
 
 ;; Predicate function for whether student is in a group
-(define (is-in-group? student)
+(define (in-group? student)
   (if (list? student)
       (if (= (length student) 6)
           #t
@@ -199,19 +209,36 @@
       #f)
   )
 
-;; Selector function that returns the group-id (group number)
-(define (id-of-group group)
-  (if (number? (caar group))
-      (caar group)
-      #f
-      )
+;; Predicate that identifies a grouping object
+(define (grouping? grouping)
+  (if (null? grouping) #f
+      (andmap in-group? grouping))
   )
 
-;; Predicate that identifies a grouping object
-(define (is-grouping? grouping)
-  (if (null? grouping) #f
-      (andmap is-in-group? grouping))
+; Predicate for no member in group has same age
+(define (no-same-age? group)
+  (let ([studentAges (map age-of-student group)])
+    (not (check-duplicates studentAges))
+    )
   )
+
+
+;; Predicate for at least 2 members are at least 24 years old
+(define (n2y24 group)
+  (count-greater-than-age-a group 2 24)
+  )
+
+;; Helper for N members above age A predicate
+(define (count-greater-than-age-a group count age)
+  (>= (length (filter
+               (lambda (x) (not (> age (age-of-student x))))
+               group))
+      count)
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;              PRINTING FUNCTIONS              ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Pretty printer for students
 (define (print-student student)
@@ -240,12 +267,42 @@
             gl)
   )
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;             CONSTRUCTOR FUNCTIONS             ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; Constructor function for a single student
+(define (make-student id name sex nationality age)
+  (if (student? (list id name sex nationality age))
+      (list id name sex nationality age)
+      (error "Invalid student"))
+  )
+
+;; Constructor function for a single group
+(define (make-group id students)
+  (if (andmap student? students)
+      (make-group-helper id (car students) (cdr students))
+      (error "Invalid student list")
+      )
+  )
+
+; Helper to append group number to student
+(define (make-group-helper id student remaining)
+  (if (null? remaining)
+      (cons (cons id student) '())
+      (cons (cons id student) (make-group-helper id (car remaining) (cdr remaining)))
+      )
+  )
+
 ;; Random grouping
 (define (group-random sl gsl)
-  (if (= (length sl) (sumList gsl))
-      (generate-random-group (shuffle sl) gsl 1 0)
-      (error "Error: Wrong amount of students in gsl")
-      )
+  (if (not (list? gsl))
+      (error "Takes list of group sizes as input, not a number")
+      (if (= (length sl) (sumList gsl))
+          (generate-random-group (shuffle sl) gsl 1 0)
+          (error "Error: Wrong amount of students in gsl")
+          ))
   )
 
 ;; Helper to generate random group
@@ -292,28 +349,21 @@
 ;; Balanced grouping by counting
 ;; sl is student list
 ;; ga is the desired amount of groups
-(define (group-count-balanced sl ga)
+(define (group-counting-balanced sl ga)
   ;; Sort first by nationality, then by sex to ensure a fair distribution when counting
   (group-counting (sort (sort sl string<? #:key nationality-of-student) string<? #:key sex-of-student) ga)
   )
 
-;; Random grouping with group predicate
-;;; At least N students in a group are A years old or older
 
-(define (no-same-age? group)
-  (let ([studentAges (map age-of-student group)])
-    (not (check-duplicates studentAges))
-    )
-  )
-
-
-
+;; Group by random with a given predicate
 (define (group-random-predicate sl gsl predicate)
   (group-random-predicate-helper sl gsl predicate 0)
   )
 
+;; Helper for random with predicate that counts attempts of creating
+;; valid groups
 (define (group-random-predicate-helper sl gsl predicate attempts)
-  (if (> attempts 1000000)
+  (if (> attempts 1000)
       (error "Could not generate groups from predecate")
 
       (if (= (length sl) (sumList gsl))
@@ -328,11 +378,14 @@
       )
   )
 
+;; Helper to iterate through groups and call a helper that checks if it single group
+;; fulfils the predicate
 (define (check-group-predicate groups predicate)
   (let ([groupNumbers (map car (unique-groups groups))])
     (check-group groups (car groupNumbers) (cdr groupNumbers) predicate))
   )
 
+;; Helper to see if a group fulfils predicate
 (define (check-group allGroups groupNumber remainingGroups predicate)
   (if (> (length remainingGroups) 1)
       (if (predicate (get-group-members allGroups groupNumber))
